@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <title>
+        VM Utilization Report - {{ month }}
+    </title>
+
+    <style>
+        {{ css | safe }}
+    </style>
+</head>
+
+<body>
+    <h1>VM Utilization Report</h1>
+
+    <div class="report-meta">
+        <strong>Month:</strong> {{ month }}<br>
+        <strong>Created at:</strong> {{ created_at }}<br>
+        <strong>Inventory VMs:</strong> {{ inventory_vm_count }}<br>
+        <strong>VMs with metrics:</strong> {{ vm_count_with_metrics }}<br>
+        <strong>VMs without metrics:</strong> {{ vms_without_metrics_count }}<br>
+        <strong>Critical/Warning VMs:</strong> {{ critical_or_warning_count }}
+    </div>
+
+    <section class="legend">
+        <h2>Status legend</h2>
+
+        <div class="legend-items">
+            {% for item in legend_items %}
+                <div class="legend-item">
+                    <span
+                        class="status-dot"
+                        style="background-color: {{ item.color }};"
+                    ></span>
+                    <span>{{ item.label }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="summary-section">
+        {% for card in inventory_cards %}
+            <div class="summary-card">
+                <div class="summary-card-title">
+                    {{ card.title }}
+                </div>
+
+                <div class="summary-card-value">
+                    {{ card.value }}
+                </div>
+            </div>
+        {% endfor %}
+    </section>
+
+    <section class="summary-section">
+        {% for card in status_cards %}
+            <div
+                class="summary-card"
+                style="background-color: {{ card.color }};"
+            >
+                <div class="summary-card-title">
+                    {{ card.title }}
+                </div>
+
+                <div class="summary-card-value">
+                    {{ card.value }}
+                </div>
+            </div>
+        {% endfor %}
+    </section>
+
+    <section class="section">
+        <h2>Top Resource Consumers</h2>
+
+        <div class="top-tables">
+            {% for top_table in top_tables %}
+                <div class="top-table-card">
+                    <h3>{{ top_table.title }}</h3>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>VM</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for row in top_table.rows %}
+                                <tr>
+                                    <td>{{ row.vm_name }}</td>
+                                    <td>
+                                        <span class="metric-value">
+                                            <span
+                                                class="status-dot"
+                                                style="background-color: {{ row.status_color }};"
+                                            ></span>
+                                            {{ row.value_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>All VMs</h2>
+
+        <p class="sort-hint">
+            Click a column header to sort the table.
+        </p>
+
+        <table id="vm-report-table">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">
+                        VM <span class="sort-indicator"></span>
+                    </th>
+                    <th onclick="sortTable(1)">
+                        Records <span class="sort-indicator"></span>
+                    </th>
+                    <th onclick="sortTable(2)">
+                        CPU Avg % <span class="sort-indicator"></span>
+                    </th>
+                    <th onclick="sortTable(3)">
+                        Memory Avg % <span class="sort-indicator"></span>
+                    </th>
+                    <th onclick="sortTable(4)">
+                        Storage Avg % <span class="sort-indicator"></span>
+                    </th>
+                    <th onclick="sortTable(5)">
+                        Overall Status <span class="sort-indicator">▲</span>
+                    </th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for row in main_rows %}
+                    <tr>
+                        <td data-sort-value="{{ row.vm_name }}">
+                            {{ row.vm_name }}
+                        </td>
+
+                        <td data-sort-value="{{ row.metric_record_count }}">
+                            {{ row.metric_record_count }}
+                        </td>
+
+                        {% for metric in row.metrics %}
+                            <td data-sort-value="{{ metric.sort_value }}">
+                                <span class="metric-value">
+                                    <span
+                                        class="status-dot"
+                                        style="background-color: {{ metric.status_color }};"
+                                    ></span>
+                                    {{ metric.value_display }}
+                                </span>
+                            </td>
+                        {% endfor %}
+
+                        <td data-sort-value="{{ row.overall_sort_value }}">
+                            <span
+                                class="status-badge"
+                                style="background-color: {{ row.overall_color }};"
+                            >
+                                {{ row.overall_status }}
+                            </span>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {% if vms_without_metrics %}
+        <section class="section">
+            <h2>VMs without Metric Records</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>VM</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for vm in vms_without_metrics %}
+                        <tr>
+                            <td>{{ vm.name }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    {% endif %}
+
+    <script>
+        {{ javascript | safe }}
+    </script>
+</body>
+</html>

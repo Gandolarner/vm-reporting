@@ -1,0 +1,147 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    color: #222222;
+}
+
+h1 {
+    margin-bottom: 10px;
+}
+
+h2 {
+    margin-top: 0;
+    font-size: 18px;
+}
+
+h3 {
+    margin-top: 0;
+}
+
+.report-meta {
+    margin-bottom: 24px;
+}
+
+.section {
+    margin-bottom: 32px;
+}
+
+.legend {
+    border: 1px solid #dddddd;
+    background: #fafafa;
+    padding: 16px;
+    margin-bottom: 24px;
+    border-radius: 6px;
+}
+
+.legend-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.summary-section {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+
+.summary-card {
+    min-width: 180px;
+    padding: 18px;
+    border-radius: 8px;
+    border: 1px solid #666666;
+}
+
+.summary-card-title {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.summary-card-value {
+    font-size: 32px;
+    font-weight: bold;
+}
+
+.top-tables {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+
+.top-table-card {
+    flex: 1;
+    min-width: 280px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th,
+td {
+    border: 1px solid #cccccc;
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #eeeeee;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+th:hover {
+    background-color: #dddddd;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.metric-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid #666666;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #111111;
+    border: 1px solid #666666;
+}
+
+.sort-hint {
+    font-size: 12px;
+    color: #666666;
+    margin-bottom: 8px;
+}
+
+.sort-indicator {
+    display: inline-block;
+    width: 12px;
+    margin-left: 4px;
+    font-size: 10px;
+}
