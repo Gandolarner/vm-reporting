@@ -5,6 +5,13 @@
 - Python 3.12 installiert
 - Git installiert
 
+## Repository clonen
+
+```powershell
+git clone https://github.com/Gandolarner/vm-reporting
+cd vm-reporting
+```
+
 ## Regulärer Modus mit VCenter-Verbindung
 
 ### Virtuelle Umgebung aktivieren
