@@ -1,0 +1,14 @@
+cpu:
+  underutilized_below: 20
+  warning_above: 70
+  critical_above: 90
+
+memory:
+  underutilized_below: 20
+  warning_above: 75
+  critical_above: 90
+
+storage:
+  underutilized_below: 20
+  warning_above: 80
+  critical_above: 90
