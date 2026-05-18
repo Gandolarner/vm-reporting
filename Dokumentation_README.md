@@ -66,7 +66,7 @@ app/
 ### Repository klonen
 
 ```powershell
-git clone <repository-url>
+git clone https://github.com/Gandolarner/vm-reporting.git
 cd vm-reporting
 ```
 
