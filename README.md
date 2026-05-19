@@ -30,6 +30,11 @@ Erfasste Metriken:
 - Debug-Commands
 - Logging
 - Automatisierung über Workflows
+- Templatebasiertes HTML-Reporting mit Jinja2
+- Ausgelagertes CSS und JavaScript
+- Demo-Modus ohne vCenter-Zugriff
+- Ausweisung von VMs ohne Metrikdaten
+- Ausgelagerte Storage-Berechnung
 
 ---
 
@@ -54,7 +59,7 @@ app/
 ## Voraussetzungen
 
 - Python 3.12+
-- VMware-vCenter-Zugriff
+- VMware-vCenter-Zugriff (für den Produktivbetrieb)
 - Windows oder Linux
 - virtuelle Umgebung (venv)
 - Git installiert
@@ -98,6 +103,12 @@ pip install -r requirements.txt
 
 ### .env anlegen
 
+Dazu:
+
+```powershell
+Copy-Item .env.example .env
+```
+
 Beispiel:
 
 ```env
@@ -119,10 +130,10 @@ LOG_LEVEL=INFO
 
 Für Präsentationen ohne Zugriff auf ein echtes VMware-vCenter kann eine separate Demo-Umgebung verwendet werden.
 
-Datei:
+Dazu:
 
-```text
-.env.demo
+```powershell
+Copy-Item .env.demo.example .env.demo
 ```
 
 Beispiel:
@@ -355,21 +366,6 @@ Remove-Item Env:APP_ENV
 
 ---
 
-## Repository initialisieren
-
-Falls noch kein Git-Repository vorhanden ist:
-
-```powershell
-git init
-git status
-git add .
-git commit -m "Initial project state"
-```
-
-Vor dem ersten Commit sollte die `.gitignore` geprüft werden, damit keine sensiblen Daten wie `.env`, Datenbanken, Logs oder erzeugte Reports versioniert werden.
-
----
-
 ## Geplante/Mögliche Erweiterungen
 
 - E-Mail-Versand
@@ -390,6 +386,9 @@ Vor dem ersten Commit sollte die `.gitignore` geprüft werden, damit keine sensi
 - Typer
 - Rich
 - pytest
+- Jinja2
+- PyYAML
+- python-dotenv
 
 ---
 

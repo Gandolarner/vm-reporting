@@ -1,0 +1,99 @@
+VM Reporting Quickstart
+=======================
+
+
+Voraussetzungen
+----------------
+
+- Python 3.12 installiert
+- Git installiert
+
+
+Repository clonen
+------------------
+
+git clone https://github.com/Gandolarner/vm-reporting
+cd vm-reporting
+
+
+Regulärer Modus mit VCenter-Verbindung
+======================================
+
+
+Virtuelle Umgebung aktivieren
+------------------------------
+
+.venv\Scripts\Activate.ps1
+
+
+Datenbank initialisieren
+-------------------------
+
+python -m app.main init-db
+
+
+Metriken sammeln
+-----------------
+
+python -m app.main collect-metrics
+
+
+Monatsaggregation
+------------------
+
+python -m app.main aggregate 2026-05
+
+
+Report erzeugen
+----------------
+
+python -m app.main report 2026-05
+
+
+Daily Workflow
+---------------
+
+python -m app.main daily-workflow
+
+
+Monthly Workflow
+-----------------
+
+python -m app.main monthly-workflow
+
+
+
+Demo-Modus
+===========
+
+
+Aktivieren
+-----------
+
+$env:APP_ENV="demo"
+
+
+Demo-Datenbank neu erzeugen
+----------------------------
+
+Remove-Item .\data\demo_vm_reporting.db -ErrorAction SilentlyContinue
+
+
+Demo-Daten erzeugen
+--------------------
+
+python -m app.main init-db
+python -m app.main seed-demo-data 2026-05
+
+
+Demo-Report erzeugen
+---------------------
+
+python -m app.main aggregate 2026-05
+python -m app.main report 2026-05
+
+
+Demo-Modus verlassen
+---------------------
+
+Remove-Item Env:APP_ENV

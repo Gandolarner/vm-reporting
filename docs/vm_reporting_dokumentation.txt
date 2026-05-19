@@ -1,0 +1,887 @@
+VM Reporting – Projektdokumentation
+
+Projektziel
+================================================================================
+
+Ziel des Projektes ist die Entwicklung einer modularen Python-Anwendung zur automatisierten Erfassung, Verarbeitung, Bewertung und Berichterstellung von VMware-vCenter-Metriken.
+
+Die Anwendung sammelt regelmäßig historische Leistungsdaten virtueller Maschinen, speichert Rohdaten in einer relationalen Datenbank, aggregiert diese monatlich und erzeugt HTML-Reports zur Bewertung der Ressourcenauslastung.
+
+Erfasste Metriken:
+
+- CPU-Auslastung
+- Arbeitsspeicherauslastung
+- Storage-Auslastung
+
+Die Anwendung soll:
+
+- unter Windows ausführbar sein
+- automatisierbar sein
+- robust gegenüber fehlenden Metriken arbeiten
+- modular erweiterbar bleiben
+- fachlich nachvollziehbare Reports erzeugen
+- auch ohne vCenter-Zugriff im Demo-Modus präsentierbar sein
+
+
+Architekturübersicht
+================================================================================
+
+Die Anwendung verwendet eine mehrschichtige Architektur.
+
+CLI
+→ Services
+→ Technical Modules
+→ Repositories
+→ Database
+
+Dadurch werden:
+
+- Präsentationslogik
+- Geschäftslogik
+- technische Integrationen
+- Datenzugriff
+
+sauber voneinander getrennt.
+
+Die CLI enthält nur die Benutzersteuerung.
+Die eigentlichen Abläufe werden in Services gekapselt.
+Technische Module wie vCenter-Client, Aggregation, Evaluation und Reporting übernehmen klar abgegrenzte Aufgaben.
+Der Datenbankzugriff erfolgt über Repository-Funktionen.
+
+
+Projektstruktur
+================================================================================
+
+app/
+├── cli/
+│   ├── commands.py
+│   └── debug_commands.py
+│
+├── collectors/
+│   └── metric_collector.py
+│
+├── config/
+│   ├── settings.py
+│   ├── threshold_loader.py
+│   └── thresholds.yaml
+│
+├── database/
+│   ├── connection.py
+│   ├── models.py
+│   └── repositories.py
+│
+├── processing/
+│   ├── aggregation.py
+│   ├── evaluation.py
+│   └── storage_usage.py
+│
+├── reporting/
+│   ├── html_report.py
+│   ├── templates/
+│   │   └── monthly_report.html.j2
+│   └── static/
+│       ├── report.css
+│       └── report.js
+│
+├── services/
+│   ├── aggregation_service.py
+│   ├── collection_service.py
+│   ├── demo_data_service.py
+│   ├── reporting_service.py
+│   └── workflow_service.py
+│
+├── utils/
+│   ├── date_utils.py
+│   └── logging_config.py
+│
+├── vcenter/
+│   ├── factory.py
+│   ├── pyvmomi_client.py
+│   └── archive/
+│       └── rest_client.py
+│
+└── main.py
+
+
+Datenmodell
+================================================================================
+
+Das Datenmodell trennt bewusst zwischen:
+
+- VM-Stammdaten
+- Sammelläufen
+- Rohmetriken
+- Monatsaggregaten
+- Bewertungsergebnissen
+
+Diese Trennung ermöglicht Nachvollziehbarkeit, Wiederholbarkeit der Aggregation und eine spätere Erweiterung des Reportings.
+
+
+virtual_machines
+--------------------------------------------------------------------------------
+
+Speichert Stammdaten virtueller Maschinen.
+
+Felder:
+
+- id
+  Interne Datenbank-ID, Primärschlüssel
+
+- moid
+  VMware Managed Object ID, eindeutig
+
+- name
+  Anzeigename der VM
+
+- created_at
+  Erstellungszeitpunkt des Datensatzes
+
+Beziehungen:
+
+- metric_records
+  Rohmetriken der VM
+
+- monthly_aggregates
+  Monatsaggregate der VM
+
+Die interne ID wird als Primärschlüssel verwendet, obwohl die VMware-MOID eindeutig ist. Dadurch bleibt die Datenbank von externen Identifikatoren entkoppelt und Beziehungen können effizient über Integer-Fremdschlüssel aufgebaut werden.
+
+
+collection_runs
+--------------------------------------------------------------------------------
+
+Dokumentiert jeden Sammellauf.
+
+Felder:
+
+- id
+  Primärschlüssel
+
+- started_at
+  Startzeit des CollectionRuns
+
+- finished_at
+  Endzeit des CollectionRuns
+
+- period_start
+  Beginn des abgefragten Metrikzeitraums
+
+- period_end
+  Ende des abgefragten Metrikzeitraums
+
+- status
+  Status des Runs, z. B. SUCCESS oder FAILED
+
+- processed_vm_count
+  Anzahl verarbeiteter VMs
+
+- created_metric_record_count
+  Anzahl erzeugter MetricRecords
+
+- error_message
+  Fehlermeldung bei Fehlern
+
+Beziehungen:
+
+- metric_records
+  Rohdaten, die in diesem Lauf erzeugt wurden
+
+Wichtig ist die Trennung zwischen:
+
+- started_at / finished_at
+- period_start / period_end
+
+started_at und finished_at beschreiben, wann der Lauf technisch ausgeführt wurde.
+
+period_start und period_end beschreiben dagegen, für welchen Zeitraum vCenter-Metriken abgefragt wurden.
+
+
+metric_records
+--------------------------------------------------------------------------------
+
+Speichert Rohmetriken einzelner Messpunkte.
+
+Felder:
+
+- id
+  Primärschlüssel
+
+- vm_id
+  Fremdschlüssel auf virtual_machines.id
+
+- collection_run_id
+  Fremdschlüssel auf collection_runs.id
+
+- timestamp
+  Messzeitpunkt
+
+- cpu_usage_percent
+  CPU-Auslastung in Prozent
+
+- memory_usage_percent
+  Arbeitsspeicherauslastung in Prozent
+
+- storage_usage_percent
+  Storage-Auslastung in Prozent
+
+- power_state
+  Power-State der VM
+
+Beziehungen:
+
+- virtual_machine
+  Zugehörige VM
+
+- collection_run
+  Zugehöriger Sammellauf
+
+CPU-, RAM- und Storagewerte sind nullable.
+
+Dadurch bleibt die Anwendung robust gegenüber:
+
+- fehlenden VMware-Metriken
+- ausgeschalteten VMs
+- Templates
+- fehlenden VMware Tools
+- unvollständigen Gastinformationen
+- VMs ohne verfügbare Gast-Dateisystemdaten
+
+Der timestamp bleibt fachlich verpflichtend.
+
+
+monthly_aggregates
+--------------------------------------------------------------------------------
+
+Speichert aggregierte Monatswerte pro VM und Monat.
+
+Berechnet werden:
+
+- Durchschnitt
+- Minimum
+- Maximum
+
+für:
+
+- CPU
+- RAM
+- Storage
+
+Zusätzlich wird gespeichert:
+
+- metric_record_count
+- created_at
+- updated_at
+
+Constraints:
+
+- Pro VM und Monat darf nur ein Monatsaggregat existieren.
+
+updated_at ist bereits für zukünftige Reaggregationen und Neubewertungen vorbereitet.
+
+
+evaluation_results
+--------------------------------------------------------------------------------
+
+Speichert Bewertungsresultate zu Monatsaggregaten.
+
+Statuswerte:
+
+- UNDERUTILIZED
+- NORMAL
+- WARNING
+- CRITICAL
+- NO_DATA
+
+Einzelstatuswerte können nullable sein, wenn für die jeweilige Metrik kein bewertbarer Wert vorhanden ist.
+
+Auch hier dienen created_at und updated_at der Nachvollziehbarkeit späterer Änderungen.
+
+
+vCenter-Anbindung
+================================================================================
+
+Die VMware-Kommunikation erfolgt über pyVmomi.
+
+
+PyVmomiClient
+--------------------------------------------------------------------------------
+
+Die Klasse PyVmomiClient kapselt:
+
+- Verbindungsaufbau zu vCenter
+- Trennung der Verbindung
+- Zugriff auf das vCenter Inventory
+- Abfrage aller virtuellen Maschinen
+- Abfrage verfügbarer Performance Counter
+- Ermittlung konkreter Counter-IDs
+- Abfrage historischer Performancewerte
+- Abfrage von Gast-Dateisystem-Rohdaten
+
+Der Client bildet damit die technische Integrationsschicht zwischen Anwendung und VMware.
+
+
+VM-Abfrage
+--------------------------------------------------------------------------------
+
+Die VMs werden über eine ContainerView aus dem vCenter Inventory geladen.
+
+Dadurch können alle virtuellen Maschinen unterhalb des Root-Folders abgefragt werden.
+
+Der Client gibt echte vim.VirtualMachine-Objekte zurück, die anschließend im Collector verarbeitet werden.
+
+
+Performance Counter
+--------------------------------------------------------------------------------
+
+CPU- und RAM-Werte werden über den VMware PerformanceManager abgefragt.
+
+vCenter stellt Performancewerte nicht direkt über sprechende Namen bereit, sondern über interne Counter-IDs.
+
+Verwendete Counter:
+
+CPU:
+- Gruppe: cpu
+- Name: usage
+- Rollup: average
+
+RAM:
+- Gruppe: mem
+- Name: usage
+- Rollup: average
+
+Die Counter-Abfrage ist notwendig, weil QueryPerf konkrete counterIds benötigt.
+
+Diese IDs werden deshalb zur Laufzeit aus den verfügbaren Countern ermittelt.
+
+
+Historische CPU- und RAM-Metriken
+--------------------------------------------------------------------------------
+
+Die historischen Werte werden über QueryPerf abgefragt.
+
+Dabei wird definiert:
+
+- start_time
+- end_time
+- intervalId
+
+Der Parameter `intervalId` gibt in vCenter die gewünschte Auflösung der historischen Performancewerte an. Der Wert `300` steht für ein Fünf-Minuten-Intervall.
+
+Für Prozentwerte liefert vCenter Rohwerte in Hundertstel-Prozent.
+
+Deshalb werden Werte mit der Einheit percent durch 100 geteilt.
+
+Beispiel:
+
+vCenter-Rohwert:
+243
+
+normalisierter Wert:
+2.43 %
+
+
+Storage-Auslastung
+================================================================================
+
+Die Storage-Auslastung wird nicht über den VMware PerformanceManager ermittelt.
+
+Stattdessen wird die Gast-Dateisystembelegung verwendet:
+
+vm.guest.disk
+
+Dadurch entsteht eine realistischere Auslastung innerhalb des Betriebssystems.
+
+Der PyVmomiClient liefert dabei nur normalisierte Rohdaten:
+
+- disk_path
+- capacity
+- free_space
+- filesystem_type
+
+Die eigentliche Berechnung erfolgt in:
+
+app/processing/storage_usage.py
+
+Berechnung:
+
+used_percent = (sum(capacity) - sum(freeSpace)) / sum(capacity) * 100
+
+Vorteile:
+
+- reale Gastbelegung
+- keine Thin-Provisioning-Verfälschung
+- keine Werte über 100 %
+- verständlichere Reports
+
+Einschränkungen:
+
+- VMware Tools erforderlich
+- Gastinformationen müssen verfügbar sein
+- wenn keine Gast-Dateisystemdaten vorhanden sind, bleibt der Storagewert None
+
+
+Metriksammlung
+================================================================================
+
+Die Metriksammlung erfolgt über den Collector.
+
+Für Storagewerte ruft der Collector zunächst die Guest-Disk-Rohdaten über den vCenter-Client ab und übergibt diese anschließend an:
+
+calculate_storage_usage_percent()
+
+aus storage_usage.py.
+
+CPU- und RAM-Werte werden zunächst als separate Zeitreihen geladen.
+
+Der Collector verwendet die CPU-Zeitreihe als führende Zeitbasis und ergänzt passende RAM-Werte anhand identischer Zeitstempel.
+
+Dadurch entstehen konsistente MetricRecords mit gemeinsamem Timestamp für CPU- und RAM-Werte.
+
+Ablauf:
+
+collect-metrics / daily-workflow
+→ collection_service
+→ metric_collector
+→ PyVmomiClient
+→ repositories
+→ database
+
+Der Collector:
+
+1. verbindet sich mit vCenter
+2. lädt alle VMs
+3. definiert den Abfragezeitraum
+4. erstellt einen CollectionRun
+5. sammelt CPU-, RAM- und Storagewerte
+6. speichert MetricRecords
+7. beendet den CollectionRun
+8. trennt die vCenter-Verbindung
+
+
+Aggregation
+================================================================================
+
+Die Aggregation erfolgt in:
+
+app/processing/aggregation.py
+
+Berechnet werden:
+
+- Durchschnitt
+- Minimum
+- Maximum
+
+Die Aggregation ist vollständig None-sicher.
+
+Fehlende Werte werden ignoriert.
+
+Beispiel:
+
+[10, 20, None, 30]
+→ Durchschnitt = 20
+
+Wenn keine gültigen Werte vorhanden sind:
+
+None
+
+
+Bewertungssystem
+================================================================================
+
+Die Bewertung erfolgt in:
+
+app/processing/evaluation.py
+
+Thresholds werden extern geladen.
+
+Beispiel:
+
+cpu:
+  underutilized_below: 20
+  warning_above: 70
+  critical_above: 90
+
+Dies ermöglicht:
+
+- fachliche Anpassung ohne Codeänderung
+- bessere Wartbarkeit
+- klare Trennung von Logik und Konfiguration
+
+
+Overall-Status
+================================================================================
+
+Die Gesamtbewertung wird aus Einzelbewertungen bestimmt.
+
+Priorität:
+
+CRITICAL
+→ WARNING
+→ UNDERUTILIZED
+→ NORMAL
+
+Fehlende Einzelmetriken werden ignoriert.
+
+
+Service-Schicht
+================================================================================
+
+Die Services kapseln Geschäftslogik.
+
+
+collection_service.py
+--------------------------------------------------------------------------------
+
+Startet die Metrikerfassung.
+
+CLI
+→ collection_service
+→ metric_collector
+
+
+aggregation_service.py
+--------------------------------------------------------------------------------
+
+Führt Monatsaggregation und Bewertung durch.
+
+CLI
+→ aggregation_service
+→ aggregation/evaluation
+→ repositories
+
+
+reporting_service.py
+--------------------------------------------------------------------------------
+
+Erzeugt HTML-Reports.
+
+CLI
+→ reporting_service
+→ html_report
+
+Zusätzlich ermittelt der Reporting-Service bekannte VMs ohne Metrikdaten.
+
+
+workflow_service.py
+--------------------------------------------------------------------------------
+
+Orchestriert Tages- und Monatsworkflows.
+
+Tagesworkflow:
+
+daily-workflow
+└── collect metrics
+
+Monatsworkflow:
+
+monthly-workflow
+├── determine previous month
+├── aggregate
+├── check for data
+└── report
+
+
+HTML-Reporting
+================================================================================
+
+Reports werden erzeugt unter:
+
+output/reports/
+
+Dateiname:
+
+report_YYYY-MM.html
+
+
+Templatebasierte Report-Erzeugung
+--------------------------------------------------------------------------------
+
+Die Reports werden templatebasiert mit Jinja2 erzeugt.
+
+Struktur:
+
+app/reporting/
+├── html_report.py
+├── templates/
+│   └── monthly_report.html.j2
+└── static/
+    ├── report.css
+    └── report.js
+
+Verantwortlichkeiten:
+
+- html_report.py
+  Bereitet Reportdaten auf und rendert Templates.
+
+- monthly_report.html.j2
+  Definiert die HTML-Struktur.
+
+- report.css
+  Enthält das Styling.
+
+- report.js
+  Enthält die clientseitige Tabellensortierung.
+
+Der erzeugte Report bleibt eine einzelne portable HTML-Datei.
+
+
+Report-Inhalt
+================================================================================
+
+Der Report enthält:
+
+- Report-Metadaten
+- Statuslegende
+- Inventory Summary
+- Status Summary Cards
+- Top Consumers
+- Haupttabelle
+- VMs ohne Metrikdaten
+
+Die Haupttabelle enthält:
+
+- VM-Name
+- Anzahl Rohdatensätze
+- durchschnittliche CPU-Auslastung
+- durchschnittliche RAM-Auslastung
+- durchschnittliche Storage-Auslastung
+- Statusmarkierungen
+- Overall-Status
+
+
+Tabellenfunktionen
+================================================================================
+
+Die Haupttabelle unterstützt:
+
+- clientseitige Sortierung
+- Klick auf Tabellenkopf
+- aufsteigende/absteigende Sortierung
+- visuelle Dreiecke zur Sortierrichtung
+
+Die Sortierlogik liegt in:
+
+app/reporting/static/report.js
+
+
+Farbsystem
+================================================================================
+
+Statusfarben:
+
+- UNDERUTILIZED → Blau
+- NORMAL → Grün
+- WARNING → Orange
+- CRITICAL → Rot
+- NO_DATA → Grau
+
+Die Reports enthalten:
+
+- Statuslegende
+- farbige Statuspunkte
+- farbige Statuskarten
+- farbige Top-Consumer-Markierungen
+
+
+Demo-Modus
+================================================================================
+
+Für Präsentationen ohne Zugriff auf ein echtes VMware-vCenter gibt es einen Demo-Modus.
+
+Verwendet wird:
+
+.env.demo
+
+Trennung:
+
+Produktiv:
+- data/vm_reporting.db
+- output/reports/
+
+Demo:
+- data/demo_vm_reporting.db
+- output/demo-reports/
+
+Demo-Daten werden erzeugt über:
+
+python -m app.main seed-demo-data 2026-05
+
+Der Demo-Modus enthält synthetische VMs mit unterschiedlichen Auslastungszuständen.
+
+
+Debug-Commands
+================================================================================
+
+Unterkommandos:
+
+python -m app.main debug ...
+
+Verfügbar:
+
+- show-aggregates
+- show-evaluations
+
+Beispiel:
+
+python -m app.main debug show-evaluations 2026-05 --status CRITICAL
+
+
+Automatisierungskonzept
+================================================================================
+
+Tägliche Datensammlung:
+
+daily-workflow
+→ collect metrics
+
+Monatsworkflow:
+
+monthly-workflow
+├── previous month
+├── aggregation
+├── evaluation
+└── report generation
+
+Die Ausführung kann z. B. über die Windows-Aufgabenplanung erfolgen.
+
+
+Fehlerrobustheit
+================================================================================
+
+Die Anwendung behandelt:
+
+- fehlende Gastinformationen
+- fehlende Storagewerte
+- fehlende CPU/RAM-Metriken
+- ausgeschaltete Systeme
+- teilweise verfügbare Metriken
+- VMs ohne Metrikdaten
+
+ohne Abbruch des Gesamtlaufs.
+
+
+Logging
+================================================================================
+
+Die Anwendung verwendet zentrales Logging.
+
+Logdatei:
+
+logs/vm_reporting.log
+
+Geloggte Ereignisse:
+
+- vCenter-Verbindungsaufbau
+- VM-Ladevorgänge
+- CollectionRuns
+- Anzahl erzeugter MetricRecords
+- Aggregationsläufe
+- Report-Erzeugung
+- Workflow-Ausführung
+- Warnungen und Fehler
+
+
+Testing
+================================================================================
+
+Die Anwendung verwendet pytest.
+
+Aktuelle Tests:
+
+- Aggregationsworkflow
+- Bewertungsworkflow
+
+Beispiel:
+
+pytest
+
+Zusätzlich wurde die Reproduzierbarkeit mit einer frisch erzeugten virtuellen Umgebung und Installation aus requirements.txt geprüft.
+
+Der aktuelle Fokus liegt auf fachlichen Workflow-Tests der Logiken für Aggregation und Bewertung.
+
+
+Typischer Ablauf
+================================================================================
+
+Datenbank initialisieren:
+
+python -m app.main init-db
+
+Metriken sammeln:
+
+python -m app.main collect-metrics
+
+Tagesworkflow:
+
+python -m app.main daily-workflow
+
+Monatsaggregation:
+
+python -m app.main aggregate 2026-05
+
+Report erzeugen:
+
+python -m app.main report 2026-05
+
+Monatsworkflow:
+
+python -m app.main monthly-workflow
+
+
+Git-Repository
+================================================================================
+
+Repository:
+
+https://github.com/Gandolarner/vm-reporting
+
+Nicht versioniert werden:
+
+- .env
+- .env.demo
+- virtuelle Umgebung
+- SQLite-Datenbanken
+- Logdateien
+- erzeugte Reports
+- IHK-Dokumentation
+
+Bereitgestellt werden:
+
+- .env.example
+- .env.demo.example
+
+
+Aktueller Projektstand
+================================================================================
+
+Der aktuelle Stand umfasst:
+
+- VMware-vCenter-Anbindung
+- historische CPU/RAM-Abfrage
+- gastbasierte Storageauswertung
+- relationale Persistenz
+- CollectionRuns
+- Rohdatenhaltung
+- Monatsaggregation
+- Bewertungslogik
+- externe Threshold-Konfiguration
+- templatebasiertes HTML-Reporting mit Jinja2
+- ausgelagertes CSS
+- ausgelagertes JavaScript
+- sortierbare Reports
+- Inventory Summary
+- Summary Cards
+- Top Consumers
+- Ausweisung von VMs ohne Metrikdaten
+- Demo-Modus ohne vCenter-Zugriff
+- Debug-Commands
+- Service-Schicht
+- Workflow-Orchestrierung
+- Logging
+- Nullable-/None-Fehlertoleranz
+- pytest-Tests
+- Git-Versionierung
+- Automatisierungsvorbereitung
+- ausgelagerte Storage-Berechnung in storage_usage.py
+
+Die Anwendung befindet sich damit in einem stabilen, nachvollziehbaren und erweiterbaren Zustand.
