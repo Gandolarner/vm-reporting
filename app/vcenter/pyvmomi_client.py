@@ -5,6 +5,8 @@ from pyVim.connect import Disconnect
 from pyVim.connect import SmartConnect
 from pyVmomi import vim
 
+from app.processing.storage_usage import calculate_storage_usage_percent
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -278,8 +280,14 @@ class PyVmomiClient:
             end_time=end_time,
         )
 
-        storage_usage_percent = self.get_vm_storage_usage_percent(
+        guest_disks = self.get_vm_guest_disks(
             vm,
+        )
+
+        storage_usage_percent = (
+            calculate_storage_usage_percent(
+                guest_disks,
+            )
         )
 
         metric_records = []
@@ -310,40 +318,50 @@ class PyVmomiClient:
 
         return metric_records
 
-    def get_vm_storage_usage_percent(
+    def get_vm_guest_disks(
         self,
         vm,
-    ) -> float | None:
+    ) -> list[dict]:
         """
-        Calculate storage usage percentage based on guest filesystem usage.
+        Return raw guest disk information for a VM.
         """
 
         guest_info = getattr(vm, "guest", None)
 
         if guest_info is None:
-            return None
+            return []
 
         guest_disks = getattr(guest_info, "disk", None)
 
         if not guest_disks:
-            return None
+            return []
 
-        total_capacity = 0
-        total_used = 0
+        disks = []
 
         for disk in guest_disks:
-            capacity = disk.capacity or 0
-            free_space = disk.freeSpace or 0
+            disks.append(
+                {
+                    "disk_path": getattr(
+                        disk,
+                        "diskPath",
+                        None,
+                    ),
+                    "capacity": getattr(
+                        disk,
+                        "capacity",
+                        None,
+                    ),
+                    "free_space": getattr(
+                        disk,
+                        "freeSpace",
+                        None,
+                    ),
+                    "filesystem_type": getattr(
+                        disk,
+                        "filesystemType",
+                        None,
+                    ),
+                }
+            )
 
-            if capacity <= 0:
-                continue
-
-            used_space = capacity - free_space
-
-            total_capacity += capacity
-            total_used += used_space
-
-        if total_capacity == 0:
-            return None
-
-        return total_used / total_capacity * 100
+        return disks
