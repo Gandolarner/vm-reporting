@@ -8,9 +8,9 @@ APP_ENV = os.getenv(
 )
 
 if APP_ENV == "demo":
-    load_dotenv(".env.demo")
+    load_dotenv(".env.demo", override=True)
 else:
-    load_dotenv(".env")
+    load_dotenv(".env", override=True)
 
 
 class Settings:
