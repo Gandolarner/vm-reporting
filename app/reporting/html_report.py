@@ -333,10 +333,18 @@ def generate_html_report(
         exist_ok=True,
     )
 
-    report_path = reports_dir / f"report_{month}.html"
+    created_at_datetime = datetime.now(UTC)
 
-    created_at = datetime.now(UTC).strftime(
+    created_at = created_at_datetime.strftime(
         "%Y-%m-%d %H:%M:%S UTC"
+    )
+
+    created_at_for_filename = created_at_datetime.strftime(
+        "%Y%m%d_%H%M%S"
+    )
+
+    report_path = reports_dir / (
+        f"report_{month}_{created_at_for_filename}.html"
     )
 
     sorted_results = sorted(
