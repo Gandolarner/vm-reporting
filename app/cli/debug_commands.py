@@ -127,7 +127,7 @@ def show_evaluations(
         table.add_column("Memory")
         table.add_column("Storage")
 
-        for evaluation, aggregate, vm in results:
+        for evaluation, vm in results:
             table.add_row(
                 vm.name,
                 evaluation.overall_status,

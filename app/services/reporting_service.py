@@ -21,6 +21,7 @@ def create_monthly_report(
     logger.info("Generating monthly report for month %s", month)
 
     db = SessionLocal()
+    report_path: Path | None = None
 
     try:
         results = (
@@ -85,4 +86,15 @@ def create_monthly_report(
 
     finally:
         db.close()
-        logger.info("Finished generating monthly report for month %s at %s", month, report_path)
+
+        if report_path is None:
+            logger.info(
+                "Finished report command for month %s without creating a report.",
+                month,
+            )
+        else:
+            logger.info(
+                "Finished generating monthly report for month %s at %s",
+                month,
+                report_path,
+            )

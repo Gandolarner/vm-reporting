@@ -4,11 +4,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from app.config.settings import settings
-from app.database.models import (
-    EvaluationResult,
-    MonthlyAggregate,
-    VirtualMachine,
-)
+from app.database.models import EvaluationResult, MonthlyAggregate, VirtualMachine
 
 
 STATUS_COLORS = {
@@ -47,7 +43,6 @@ def get_status_color(
         "#cccccc",
     )
 
-
 def get_status_priority(
     status: str | None,
 ) -> int:
@@ -59,7 +54,6 @@ def get_status_priority(
         99,
     )
 
-
 def format_value(
     value: float | None,
 ) -> str:
@@ -68,7 +62,6 @@ def format_value(
 
     return f"{value:.2f}"
 
-
 def format_sort_value(
     value: float | int | str | None,
 ) -> str:
@@ -76,7 +69,6 @@ def format_sort_value(
         return ""
 
     return str(value)
-
 
 def load_static_file(
     file_name: str,
@@ -91,7 +83,6 @@ def load_static_file(
         encoding="utf-8",
     )
 
-
 def get_template_environment() -> Environment:
     template_path = (
         Path(__file__).parent
@@ -103,7 +94,6 @@ def get_template_environment() -> Environment:
         autoescape=True,
     )
 
-
 def build_legend_items() -> list[dict]:
     return [
         {
@@ -113,7 +103,6 @@ def build_legend_items() -> list[dict]:
         }
         for status, label in STATUS_LABELS.items()
     ]
-
 
 def build_inventory_cards(
     inventory_vm_count: int,
@@ -134,7 +123,6 @@ def build_inventory_cards(
             "value": vms_without_metrics_count,
         },
     ]
-
 
 def build_status_cards(
     results: list[
@@ -166,7 +154,6 @@ def build_status_cards(
         for status, count in status_counts.items()
     ]
 
-
 def build_metric_cell(
     value: float | None,
     status: str | None,
@@ -178,7 +165,6 @@ def build_metric_cell(
         "status": status,
         "status_color": get_status_color(status),
     }
-
 
 def build_main_rows(
     sorted_results: list[
@@ -229,7 +215,6 @@ def build_main_rows(
 
     return rows
 
-
 def build_top_table(
     title: str,
     metric_name: str,
@@ -278,7 +263,6 @@ def build_top_table(
         "rows": rows,
     }
 
-
 def build_top_tables(
     results: list[
         tuple[
@@ -308,7 +292,6 @@ def build_top_tables(
             results,
         ),
     ]
-
 
 def generate_html_report(
     month: str,
