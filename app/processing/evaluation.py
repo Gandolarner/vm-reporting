@@ -4,7 +4,7 @@ from app.config.threshold_loader import load_thresholds
 def evaluate_usage(
     value: float | None,
     thresholds: dict,
-) -> str:
+) -> str | None:
     """
     Evaluate a usage value against thresholds and return the evaluation result.
     """
@@ -55,7 +55,7 @@ def determine_overall_status(
     
 def evaluate_aggregate(
         aggregation_result: dict[str, float],
-) -> str:
+) -> dict[str, str | None]:
     """
     Evaluate aggregated metric values for CPU, memory and storage.
     """
