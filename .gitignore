@@ -23,3 +23,5 @@ docs/ihk_doku/
 .idea/
 .DS_Store
 Thumbs.db
+
+.VSCodeCounter/
